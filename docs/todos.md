@@ -10,14 +10,14 @@ Track progress here. Order matters: each phase unlocks the next. The architectur
 
 ## Phase 0 — Environment & accounts
 
-- [ ] Install prerequisites (Python 3.12+, uv, Node 20+, pnpm, Supabase CLI optional)
-- [ ] Create Supabase project ([guide](../guides/supabase-setup.md))
-- [ ] Save credentials: Project URL, anon key, service_role key, direct `DATABASE_URL`
-- [ ] Configure Supabase Auth: email provider on; disable email confirm for local dev if needed
-- [ ] Create OpenAI API key with access to chat + embedding models
-- [ ] Copy `backend/.env.example` → `backend/.env` and fill values
-- [ ] Copy `frontend/.env.example` → `frontend/.env` and fill values
-- [ ] Verify sample corpus: `uv run data/download.py` (already have 5 tickers × 5 years of 10-Ks)
+- [x] Install prerequisites (Python 3.12+, uv, Node 20+, pnpm, Supabase CLI optional)
+- [x] Create Supabase project ([guide](../guides/supabase-setup.md))
+- [x] Save credentials: Project URL, anon key, service_role key, direct `DATABASE_URL`
+- [x] Configure Supabase Auth: email provider on; disable email confirm for local dev if needed
+- [x] Create OpenAI API key with access to chat + embedding models
+- [x] Copy `backend/.env.example` → `backend/.env` and fill values
+- [x] Copy `frontend/.env.example` → `frontend/.env` and fill values
+- [x] Verify sample corpus: `uv run data/download.py` (already have 5 tickers × 5 years of 10-Ks)
 
 ---
 
@@ -25,18 +25,18 @@ Track progress here. Order matters: each phase unlocks the next. The architectur
 
 Backend ([guide](../guides/backend-setup.md)):
 
-- [ ] `cd backend && uv sync`
-- [ ] Add runtime deps (FastAPI, uvicorn, pydantic, sqlalchemy, alembic, supabase, openai, pydantic-ai, pgvector, etc.)
-- [ ] Create `backend/app/` layout: `main.py`, `config.py`, health route
-- [ ] Configure editable package install in `pyproject.toml` so `from app...` works everywhere
-- [ ] `uv run uvicorn app.main:app --reload` — health check responds
+- [x] `cd backend && uv sync`
+- [x] Add runtime deps (FastAPI, uvicorn, pydantic, sqlalchemy, alembic, supabase, openai, pydantic-ai, pgvector, etc.)
+- [x] Create `backend/app/` layout: `main.py`, `config.py`, health route
+- [x] Configure editable package install in `pyproject.toml` so `from app...` works everywhere
+- [x] `uv run uvicorn app.main:app --reload` — health check responds
 
 Frontend ([guide](../guides/frontend-setup.md)):
 
-- [ ] Scaffold Vite + React + TypeScript in `frontend/`
-- [ ] Add Tailwind, shadcn/ui, React Router
-- [ ] Create `src/lib/env.ts` (validated env — fail fast on missing vars)
-- [ ] `pnpm dev` — app loads in browser
+- [x] Scaffold Vite + React + TypeScript in `frontend/`
+- [x] Add Tailwind, shadcn/ui, React Router
+- [x] Create `src/lib/env.ts` (validated env — fail fast on missing vars)
+- [x] `pnpm dev` — app loads in browser
 
 ---
 
@@ -44,21 +44,21 @@ Frontend ([guide](../guides/frontend-setup.md)):
 
 Supabase Postgres is the source of truth; Alembic owns schema ([architecture](../architecture.md#schema-management)).
 
-- [ ] Init Alembic: `uv run alembic init alembic`
-- [ ] Wire `alembic/env.py` to `app.config` + SQLAlchemy metadata
-- [ ] Define SQLAlchemy models in `app/database/models.py`:
-  - [ ] `users`
-  - [ ] `chat_threads`, `chat_messages`, `message_citations`
-  - [ ] `source_documents`, `document_chunks` (embedding + `tsvector` columns)
-- [ ] Generate initial migration (`alembic revision --autogenerate`)
-- [ ] Review migration — add explicit ops Alembic can't infer:
-  - [ ] `create extension if not exists vector`
-  - [ ] `vector(1536)` embedding column
-  - [ ] generated `tsvector` column on chunks
-  - [ ] HNSW index (vectors) + GIN indexes (full-text, JSON metadata)
-  - [ ] RLS policies (user-scoped chats; corpus readable by authenticated users)
-- [ ] `uv run alembic upgrade head` against Supabase direct connection
-- [ ] Smoke test: connect from backend, list tables
+- [x] Init Alembic: `uv run alembic init alembic`
+- [x] Wire `alembic/env.py` to `app.config` + SQLAlchemy metadata
+- [x] Define SQLAlchemy models in `app/database/models.py`:
+  - [x] `users`
+  - [x] `chat_threads`, `chat_messages`, `message_citations`
+  - [x] `source_documents`, `document_chunks` (embedding + `tsvector` columns)
+- [x] Generate initial migration (`alembic revision --autogenerate`)
+- [x] Review migration — add explicit ops Alembic can't infer:
+  - [x] `create extension if not exists vector`
+  - [x] `vector(1536)` embedding column
+  - [x] generated `tsvector` column on chunks
+  - [x] HNSW index (vectors) + GIN indexes (full-text, JSON metadata)
+  - [x] RLS policies (user-scoped chats; corpus readable by authenticated users)
+- [x] `uv run alembic upgrade head` against Supabase direct connection
+- [x] Smoke test: connect from backend, list tables
 
 ---
 
@@ -66,12 +66,12 @@ Supabase Postgres is the source of truth; Alembic owns schema ([architecture](..
 
 Client brief: Driftwood email login, per-user chat history.
 
-- [ ] Frontend: `src/lib/supabase.ts` browser client
-- [ ] Frontend: sign-up / sign-in / sign-out pages (email only)
-- [ ] Frontend: auth guard — redirect unauthenticated users to login
-- [ ] Backend: `app/auth/dependencies.py` — verify `Authorization: Bearer <jwt>` via Supabase
-- [ ] Backend: `get_current_user` dependency on protected routes
-- [ ] End-to-end test: sign in in browser → backend accepts token → rejects missing/expired token
+- [x] Frontend: `src/lib/supabase.ts` browser client
+- [x] Frontend: sign-up / sign-in / sign-out pages (email only)
+- [x] Frontend: auth guard — redirect unauthenticated users to login
+- [x] Backend: `app/auth/dependencies.py` — verify `Authorization: Bearer <jwt>` via Supabase
+- [x] Backend: `get_current_user` dependency on protected routes
+- [x] End-to-end test: sign in in browser → backend accepts token → rejects missing/expired token
 
 ---
 
@@ -79,10 +79,10 @@ Client brief: Driftwood email login, per-user chat history.
 
 Prove the streaming contract before building retrieval/LLM.
 
-- [ ] Frontend: `src/lib/http.ts` — fetch wrapper, bearer injection, typed errors
-- [ ] Frontend: `src/lib/api.ts` — thread list, create thread, load messages
-- [ ] Backend: `app/database/supabase.py` — user-scoped + service-role clients
-- [ ] Backend: `app/database/chats.py` — CRUD for threads and messages
+- [x] Frontend: `src/lib/http.ts` — fetch wrapper, bearer injection, typed errors
+- [x] Frontend: `src/lib/api.ts` — thread list, create thread, load messages
+- [x] Backend: `app/database/supabase.py` — user-scoped + service-role clients
+- [x] Backend: `app/database/chats.py` — CRUD for threads and messages
 - [ ] Backend: `POST /chat/stream` — stubbed assistant response (no OpenAI yet)
 - [ ] Backend: emit AI SDK-compatible streaming events
 - [ ] Frontend: install Vercel AI SDK UI packages
