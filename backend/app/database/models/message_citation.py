@@ -1,11 +1,20 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, UniqueConstraint, func, text as sa_text
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    UniqueConstraint,
+    func,
+    text as sa_text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from app.database.models.chat_message import ChatMessage
     from app.database.models.document_chunk import DocumentChunk

@@ -20,8 +20,12 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     database_url: str
     openai_api_key: str
+    openai_llm_model: str = "gpt-5.5"
     openai_embedding_model: str = "text-embedding-3-small"
     openai_embedding_dimensions: int = 1536
+    retrieval_limit: int = 10
+    retrieval_candidate_k: int = 50
+    rrf_k: int = 60
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     @field_validator("allowed_origins", mode="before")
@@ -35,7 +39,9 @@ class Settings(BaseSettings):
     @property
     def sqlalchemy_database_url(self) -> str:
         if self.database_url.startswith("postgresql://"):
-            return self.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+            return self.database_url.replace(
+                "postgresql://", "postgresql+psycopg://", 1
+            )
         return self.database_url
 
 

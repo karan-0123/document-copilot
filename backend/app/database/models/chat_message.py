@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.base import Base
 
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from app.database.models.chat_thread import ChatThread
     from app.database.models.message_citation import MessageCitation
@@ -44,5 +45,7 @@ class ChatMessage(Base):
 
     __table_args__ = (
         Index("ix_chat_messages_thread_id", "thread_id"),
-        UniqueConstraint("thread_id", "sequence", name="uq_chat_messages_thread_sequence"),
+        UniqueConstraint(
+            "thread_id", "sequence", name="uq_chat_messages_thread_sequence"
+        ),
     )

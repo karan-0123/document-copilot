@@ -12,12 +12,12 @@ from sqlalchemy import (
     func,
     text as sa_text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING, Any
 from app.config import settings
 from app.database.base import Base
 
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.database.models.source_document import SourceDocument
     from app.database.models.message_citation import MessageCitation
@@ -45,6 +45,9 @@ class DocumentChunk(Base):
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(settings.openai_embedding_dimensions)
     )
+    search_vector: Mapped[Any | None] = mapped_column(
+        TSVECTOR, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -53,6 +56,8 @@ class DocumentChunk(Base):
     citations: Mapped[list["MessageCitation"]] = relationship(back_populates="chunk")
 
     __table_args__ = (
-        UniqueConstraint("document_id", "chunk_index", name="uq_document_chunks_doc_index"),
+        UniqueConstraint(
+            "document_id", "chunk_index", name="uq_document_chunks_doc_index"
+        ),
         Index("ix_document_chunks_document_id", "document_id"),
     )

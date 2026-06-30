@@ -13,6 +13,8 @@ from app.database.supabase import (
     get_service_role_client,
     get_user_client,
 )
+from app.database.session import get_db, SessionLocal
+from app.database.documents import get_chunk_by_id, get_chunk_with_neighbors
 from app.database.chats import (
     create_thread,
     get_thread,
@@ -35,6 +37,10 @@ __all__ = [
     "DocumentChunk",
     "get_service_role_client",
     "get_user_client",
+    "get_db",
+    "SessionLocal",
+    "get_chunk_by_id",
+    "get_chunk_with_neighbors",
     "create_thread",
     "get_thread",
     "list_threads",
@@ -45,4 +51,3 @@ __all__ = [
     "create_citations",
     "get_message_citations",
 ]
-

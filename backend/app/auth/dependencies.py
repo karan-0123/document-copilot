@@ -2,7 +2,7 @@ import logging
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
-from app.database import get_user_client
+from app.database import get_user_client, get_service_role_client
 from supabase import AuthApiError
 
 logger = logging.getLogger("app.auth")
@@ -28,16 +28,31 @@ async def get_current_user(
     try:
         client = await get_user_client(token)
         response = await client.auth.get_user(token)
-        
+
         if response is None or response.user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token",
             )
-            
+
+        # Sync user to the public.users database table to prevent FK violations
+        user_id = response.user.id
+        email = response.user.email
+
+        service_client = await get_service_role_client()
+        existing = (
+            await service_client.table("users").select("id").eq("id", user_id).execute()
+        )
+        if not existing.data:
+            await (
+                service_client.table("users")
+                .insert({"id": user_id, "email": email})
+                .execute()
+            )
+
         return CurrentUser(
-            id=response.user.id,
-            email=response.user.email,
+            id=user_id,
+            email=email,
         )
 
     except HTTPException:

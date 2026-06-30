@@ -4,8 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.chats.router import router as chats_router
-from app.chat.router import router as chat_router
+from app.api.chat import chat_router, chats_router
 
 
 @asynccontextmanager

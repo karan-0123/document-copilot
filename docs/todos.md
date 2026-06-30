@@ -83,11 +83,11 @@ Prove the streaming contract before building retrieval/LLM.
 - [x] Frontend: `src/lib/api.ts` — thread list, create thread, load messages
 - [x] Backend: `app/database/supabase.py` — user-scoped + service-role clients
 - [x] Backend: `app/database/chats.py` — CRUD for threads and messages
-- [ ] Backend: `POST /chat/stream` — stubbed assistant response (no OpenAI yet)
-- [ ] Backend: emit AI SDK-compatible streaming events
-- [ ] Frontend: install Vercel AI SDK UI packages
-- [ ] Frontend: chat page with `useChat` + `DefaultChatTransport` pointed at FastAPI
-- [ ] End-to-end test: send message → see streamed stub reply → messages persist in Supabase
+- [x] Backend: `POST /chat/stream` — stubbed assistant response (no OpenAI yet)
+- [x] Backend: emit AI SDK-compatible streaming events
+- [x] Frontend: install Vercel AI SDK UI packages
+- [x] Frontend: chat page with `useChat` pointed at FastAPI
+- [x] End-to-end test: send message → see streamed stub reply → messages persist in Supabase
 
 ---
 
@@ -95,15 +95,15 @@ Prove the streaming contract before building retrieval/LLM.
 
 Client brief: curated SEC corpus must be searchable and citable. Without this phase, the product cannot answer anything real.
 
-- [ ] HTML → normalized Markdown parser for SEC 10-K filings
-- [ ] Extract metadata: ticker, company, filing type, fiscal year, filing date, accession number
-- [ ] Chunking strategy: section-aware splits with page/section metadata and token counts
-- [ ] Write `source_documents` rows (Markdown body + metadata)
-- [ ] Write `document_chunks` rows (text + metadata, no embeddings yet)
-- [ ] Embedding job: OpenAI embeddings → store in `document_chunks.embedding`
-- [ ] Populate generated `search_vector` / `tsvector` for full-text search
-- [ ] CLI or script: `ingest` command to process `data/downloads/` into Supabase
-- [ ] Verify: all 25 sample 10-Ks ingested; spot-check chunk text and metadata in DB
+- [x] HTML → normalized Markdown parser for SEC 10-K filings
+- [x] Extract metadata: ticker, company, filing type, fiscal year, filing date, accession number
+- [x] Chunking strategy: section-aware splits with page/section metadata and token counts
+- [x] Write `source_documents` rows (Markdown body + metadata)
+- [x] Write `document_chunks` rows (text + metadata, no embeddings yet)
+- [x] Embedding job: OpenAI embeddings → store in `document_chunks.embedding`
+- [x] Populate generated `search_vector` / `tsvector` for full-text search
+- [x] CLI or script: `ingest` command to process `data/downloads/` into Supabase
+- [x] Verify: all 25 sample 10-Ks ingested; spot-check chunk text and metadata in DB
 
 ---
 
@@ -111,12 +111,12 @@ Client brief: curated SEC corpus must be searchable and citable. Without this ph
 
 Architecture: hybrid semantic + lexical search with RRF fusion.
 
-- [ ] `app/retrieval/queries.py` — pgvector similarity query
-- [ ] `app/retrieval/queries.py` — Postgres full-text query on `search_vector`
-- [ ] `app/retrieval/fusion.py` — Reciprocal Rank Fusion in Python
-- [ ] `app/retrieval/retriever.py` — query → ranked `SourcePassage` list (+ optional neighbor chunks)
-- [ ] Unit tests: known queries return expected filing sections (e.g. Apple revenue mix, NVIDIA data center risks)
-- [ ] Wire retriever into chat orchestrator (still without full LLM if useful for debugging)
+- [x] `app/retrieval/queries.py` — pgvector similarity query
+- [x] `app/retrieval/queries.py` — Postgres full-text query on `search_vector`
+- [x] `app/retrieval/fusion.py` — Reciprocal Rank Fusion in Python
+- [x] `app/retrieval/retriever.py` — query → ranked `SourcePassage` list (+ optional neighbor chunks)
+- [x] Unit tests: known queries return expected filing sections (e.g. Apple revenue mix, NVIDIA data center risks)
+- [x] Wire retriever into chat orchestrator (still without full LLM if useful for debugging)
 
 ---
 
@@ -124,16 +124,16 @@ Architecture: hybrid semantic + lexical search with RRF fusion.
 
 Client brief trust contract: never invent facts, always cite, show underlying passage, refuse when corpus insufficient.
 
-- [ ] `app/assistant/outputs.py` — `GroundedAnswer`, `Citation`, `SourcePassage`
-- [ ] `app/assistant/instructions.md` — product contract (cite-only, no stock picks, refuse when unsupported)
-- [ ] `app/assistant/deps.py` — `DocumentAgentDeps` dataclass
-- [ ] `app/assistant/agent.py` — PydanticAI agent with bounded tools (`search_filings`, `read_chunk`, etc.)
-- [ ] `app/grounding/validator.py` — every citation maps to a retrieved passage; fail closed on violation
-- [ ] `app/chat/orchestrator.py` — full turn: retrieve → generate → validate → persist
-- [ ] `app/chat/messages.py` — AI SDK wire format ↔ internal models
-- [ ] `app/chat/streaming.py` — stream text deltas + citation metadata parts
-- [ ] Replace stub `/chat/stream` with real orchestrator
-- [ ] Unit tests: grounding validator, citation extraction, "insufficient evidence" path
+- [x] `app/assistant/outputs.py` — `GroundedAnswer`, `Citation`, `SourcePassage`
+- [x] `app/assistant/instructions.md` — product contract (cite-only, no stock picks, refuse when unsupported)
+- [x] `app/assistant/deps.py` — `DocumentAgentDeps` dataclass
+- [x] `app/assistant/agent.py` — PydanticAI agent with bounded tools (`search_filings`, `read_chunk`, etc.)
+- [x] `app/grounding/validator.py` — every citation maps to a retrieved passage; fail closed on violation
+- [x] `app/chat/orchestrator.py` — full turn: retrieve → generate → validate → persist
+- [x] `app/chat/messages.py` — AI SDK wire format ↔ internal models
+- [x] `app/chat/streaming.py` — stream text deltas + citation metadata parts
+- [x] Replace stub `/chat/stream` with real orchestrator
+- [x] Unit tests: grounding validator, citation extraction, "insufficient evidence" path
 
 ---
 
