@@ -76,13 +76,22 @@ def lexical_search(
     
     # 2. Fallback to broad OR search if strict search returns nothing
     if not results:
-        # Extract alphanumeric words and ignore single characters
-        words = [
-            w for w in cleaned_query.replace("'", "").replace('"', "").split()
-            if w.isalnum() and len(w) > 1
-        ]
-        if words:
-            or_query = " | ".join(words)
+        import re
+        STOPWORDS = {
+            "across", "how", "did", "the", "and", "between", "for", "its", "about", 
+            "with", "from", "to", "does", "do", "any", "of", "these", "company", 
+            "companies", "in", "on", "at", "by", "an", "a", "is", "are", "was", 
+            "were", "what", "why", "where", "describe", "describes", "explain", 
+            "change", "changed", "way", "who", "which", "whose", "whom", "this", 
+            "that", "these", "those"
+        }
+        # Extract alphanumeric words using regex (drops trailing commas/question marks)
+        words = re.findall(r'\b[a-zA-Z0-9]{2,}\b', cleaned_query.lower())
+        # Filter out common conversational/query stopwords
+        keywords = [w for w in words if w not in STOPWORDS]
+        
+        if keywords:
+            or_query = " | ".join(keywords)
             tsquery_or = func.to_tsquery("english", or_query)
             
             stmt_or = (

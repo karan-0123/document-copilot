@@ -8,6 +8,9 @@ This directory contains the core implementation of the hybrid document retrieval
 
 The pipeline executes a search in the following sequential stages:
 
+![Retrieval Pipeline Flow Diagram](retrieval_pipeline_flow.png)
+
+### System Flowchart (Mermaid)
 ```mermaid
 graph TD
     Input[User Query + Optional Filters] --> Embed[1. Generate Query Embedding]

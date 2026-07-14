@@ -1,17 +1,19 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthGuard } from './components/auth-guard';
 import { Login } from './pages/login';
 import { Signup } from './pages/signup';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { useChat } from '@ai-sdk/react';
+import { useChat } from 'ai/react';
 
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { Sidebar } from './components/sidebar';
 import { WelcomeScreen } from './components/welcome-screen';
 import { ChatArea } from './components/chat-area';
 import { api } from './lib/api';
-import type { ChatThread } from './lib/api';
+import { CitationInspector } from './components/citation-inspector';
 
 function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -42,12 +44,7 @@ function Dashboard() {
   }, []);
 
   // Vercel AI SDK useChat Hook
-  const {
-    messages,
-    setMessages,
-    append,
-    isLoading: streamingLoading,
-  } = useChat({
+  const chatResult = useChat({
     api: `${import.meta.env.VITE_API_BASE_URL}/chat/stream`,
     id: activeThreadId || undefined,
     body: {
@@ -59,6 +56,30 @@ function Dashboard() {
         }
       : undefined,
   });
+
+  const {
+    messages,
+    setMessages,
+    append,
+    isLoading: streamingLoading,
+    stop,
+    error,
+  } = chatResult || {};
+
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pendingPrompt && activeThreadId && append) {
+      console.log("APPENDING PENDING PROMPT:", pendingPrompt);
+      append({ role: 'user', content: pendingPrompt }).catch(e => console.error("Append error:", e));
+      setPendingPrompt(null);
+    }
+  }, [pendingPrompt, activeThreadId, append]);
+
+  useEffect(() => {
+    console.log("CHAT_RESULT_KEYS:", Object.keys(chatResult || {}));
+    console.log("APPEND_IS_FUNCTION:", typeof (chatResult as any)?.append === 'function');
+  }, [chatResult]);
 
   // Track stream completion to refresh messages with backend citations
   const [prevIsLoading, setPrevIsLoading] = useState(false);
@@ -82,18 +103,28 @@ function Dashboard() {
     }
   };
 
+  // Fetch thread history when active thread changes
+  useEffect(() => {
+    if (activeThreadId) {
+      let isMounted = true;
+      setLoadingHistory(true);
+      api.getMessages(activeThreadId)
+        .then((messagesList) => {
+          if (isMounted) setMessages(messagesList as any);
+        })
+        .catch(() => {
+          if (isMounted) setMessages([]);
+        })
+        .finally(() => {
+          if (isMounted) setLoadingHistory(false);
+        });
+      return () => { isMounted = false; };
+    }
+  }, [activeThreadId, setMessages]);
+
   // Select Thread
   const handleSelectThread = async (id: string) => {
     setActiveThreadId(id);
-    setLoadingHistory(true);
-    try {
-      const messagesList = await api.getMessages(id);
-      setMessages(messagesList as any);
-    } catch {
-      setMessages([]);
-    } finally {
-      setLoadingHistory(false);
-    }
   };
 
   // Create Thread
@@ -132,7 +163,12 @@ function Dashboard() {
   // Send message
   const handleSendMessage = async (content: string) => {
     if (!activeThreadId) return;
-    append({ role: 'user', content });
+    try {
+      console.log("CALLING APPEND WITH:", { role: 'user', content });
+      await append({ role: 'user', content });
+    } catch (e) {
+      console.error("Append error:", e);
+    }
   };
 
   // Select suggestion prompt card
@@ -146,46 +182,54 @@ function Dashboard() {
         threadId = newThread.id;
         setActiveThreadId(threadId);
         setMessages([]);
+        setPendingPrompt(prompt); // Queue it for after state updates
       } catch {
         return;
       }
-    }
-    append({ role: 'user', content: prompt }, {
-      body: {
-        thread_id: threadId
+    } else {
+      try {
+        console.log("CALLING APPEND WITH:", { role: 'user', content: prompt });
+        await append({ role: 'user', content: prompt });
+      } catch (e) {
+        console.error("Append error:", e);
       }
-    });
+    }
   };
 
   const activeThread = threads.find((t) => t.id === activeThreadId);
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 font-sans overflow-hidden">
-      <Sidebar
-        threads={threads}
-        activeThreadId={activeThreadId}
-        onSelectThread={handleSelectThread}
-        onCreateThread={handleCreateThread}
-        onDeleteThread={handleDeleteThread}
-        userEmail={user?.email}
-        onSignOut={handleSignOut}
-        isOpen={sidebarOpen}
-        setIsOpen={setSidebarOpen}
-      />
+    <SidebarProvider>
+      <div className="flex h-screen w-screen bg-background text-foreground font-sans overflow-hidden">
+        <Sidebar
+          threads={threads}
+          activeThreadId={activeThreadId}
+          onSelectThread={handleSelectThread}
+          onCreateThread={handleCreateThread}
+          onDeleteThread={handleDeleteThread}
+          onRenameThread={(id, title) => console.log('Rename')}
+          userEmail={user?.email}
+          onSignOut={handleSignOut}
+        />
 
-      <div className="flex flex-col flex-1 overflow-hidden h-full">
-        {activeThreadId ? (
-          <ChatArea
-            messages={messages as any}
-            onSendMessage={handleSendMessage}
-            isLoading={streamingLoading || loadingHistory}
-            threadTitle={activeThread?.title || 'Untitled Chat'}
-          />
-        ) : (
-          <WelcomeScreen onSelectPrompt={handleSelectPrompt} />
-        )}
+        <div className="flex flex-col flex-1 overflow-hidden h-full min-w-0">
+          {activeThreadId ? (
+            <ChatArea
+              messages={messages as any}
+              onSendMessage={handleSendMessage}
+              isLoading={streamingLoading || loadingHistory}
+              threadTitle={activeThread?.title || 'Untitled Chat'}
+              streamError={error?.message}
+              onStopGeneration={stop}
+              selectedCitation={null}
+              onSelectCitation={() => {}}
+            />
+          ) : (
+            <WelcomeScreen onSelectPrompt={handleSelectPrompt} />
+          )}
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
 
@@ -193,15 +237,17 @@ function Dashboard() {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        
-        {/* Protected Routes */}
-        <Route element={<AuthGuard />}>
-          <Route path="/" element={<Dashboard />} />
-        </Route>
-      </Routes>
+      <TooltipProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          {/* Protected Routes */}
+          <Route element={<AuthGuard />}>
+            <Route path="/" element={<Dashboard />} />
+          </Route>
+        </Routes>
+      </TooltipProvider>
     </BrowserRouter>
   );
 }

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '@/lib/supabase';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { FileText } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -28,53 +31,70 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-zinc-50 px-4 py-8 text-zinc-900 font-sans overflow-y-auto">
-      <div className="w-full max-w-[480px] rounded-2xl border border-zinc-200 bg-white p-8 md:p-10 shadow-sm">
-        <h2 className="text-2xl font-semibold tracking-tight text-center mb-1">Sign in</h2>
-        <p className="text-zinc-500 text-sm text-center mb-8">
-          Use your email and password to access Document Copilot.
-        </p>
-        
+    <div className="flex h-screen w-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-[400px]">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground mb-4">
+            <FileText size={18} />
+          </div>
+          <h2 className="text-xl font-semibold text-foreground tracking-tight">
+            Sign in
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Access Document Copilot with your account.
+          </p>
+        </div>
+
         {error && (
-          <div className="mb-6 rounded-lg bg-red-50 border border-red-200 p-3.5 text-sm text-red-600">
+          <div className="mb-4 rounded-lg border border-destructive bg-destructive/10 p-3 text-xs text-destructive">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-sm font-semibold text-zinc-900 mb-2">Email</label>
-            <input
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-1.5">
+            <label htmlFor="email" className="block text-xs font-medium text-muted-foreground">
+              Email
+            </label>
+            <Input
+              id="email"
+              name="email"
               type="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none transition-colors"
-              placeholder="you@driftwood.com"
+              placeholder="you@company.com"
+              className="bg-background border-input text-foreground placeholder:text-muted-foreground"
             />
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-zinc-900 mb-2">Password</label>
-            <input
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="block text-xs font-medium text-muted-foreground">
+              Password
+            </label>
+            <Input
+              id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none transition-colors"
+              className="bg-background border-input text-foreground placeholder:text-muted-foreground"
             />
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-[#18181b] py-3 text-sm font-semibold text-white transition hover:bg-[#27272a] disabled:opacity-50 mt-2 shadow-sm"
-          >
+          <Button type="submit" disabled={loading} className="w-full mt-2">
             {loading ? 'Signing in...' : 'Sign in'}
-          </button>
+          </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-zinc-500">
+        <div className="mt-6 text-center text-xs text-muted-foreground">
           Need an account?{' '}
-          <Link to="/signup" className="text-zinc-900 hover:underline font-semibold">
+          <Link
+            to="/signup"
+            className="text-foreground hover:underline font-medium"
+          >
             Sign up
           </Link>
         </div>

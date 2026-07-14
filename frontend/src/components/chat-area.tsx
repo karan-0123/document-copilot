@@ -1,12 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { ChatMessage } from '../lib/api';
-import { Send, FileText, ChevronDown, ChevronUp, Bot, User } from 'lucide-react';
+import type { ChatMessage } from '@/lib/api';
+import { Send, AlertTriangle, Bot, Square } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { MessageBubble } from './message-bubble';
+import { TypingIndicator } from './typing-indicator';
 
 interface ChatAreaProps {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
   isLoading: boolean;
   threadTitle: string;
+  selectedCitation: any | null;
+  onSelectCitation: (citation: any) => void;
+  onStopGeneration?: () => void;
+  streamError?: string | null;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
@@ -14,136 +24,180 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   onSendMessage,
   isLoading,
   threadTitle,
+  selectedCitation,
+  onSelectCitation,
+  onStopGeneration,
+  streamError,
 }) => {
   const [input, setInput] = useState('');
-  const [openCitations, setOpenCitations] = useState<Record<string, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = () => {
     if (!input.trim() || isLoading) return;
     onSendMessage(input.trim());
     setInput('');
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const toggleCitation = (msgId: string) => {
-    setOpenCitations((prev) => ({ ...prev, [msgId]: !prev[msgId] }));
+  // Auto-resize textarea
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    const el = e.target;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   };
 
+  // Check if streaming has started (last message is an assistant with content)
+  const isStreaming =
+    isLoading &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === 'assistant' &&
+    !messages[messages.length - 1].content.startsWith('3:');
+
+  // Waiting = loading but no assistant token yet
+  const isWaiting = isLoading && !isStreaming;
+
   return (
-    <div className="flex flex-col flex-1 bg-zinc-950 text-zinc-100 overflow-hidden h-full">
+    <div className="flex flex-col flex-1 bg-background text-foreground overflow-hidden h-full">
       {/* Header */}
-      <div className="flex h-16 items-center px-6 border-b border-zinc-800 bg-zinc-950">
-        <h3 className="font-semibold text-zinc-200">{threadTitle}</h3>
+      <div className="flex h-12 items-center px-5 border-b border-border shrink-0">
+        <h3 className="text-xs font-medium text-muted-foreground truncate">
+          {threadTitle}
+        </h3>
       </div>
 
-      {/* Messages Window */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {messages.map((msg) => {
-          const isAi = msg.role === 'assistant';
-          const hasCitations = isAi && msg.payload?.citations && msg.payload.citations.length > 0;
-          const showCitList = openCitations[msg.id] || false;
-
-          return (
-            <div
+      {/* Messages */}
+      <ScrollArea className="flex-1">
+        <div className="max-w-3xl mx-auto p-6 space-y-5">
+          {messages.map((msg) => (
+            <MessageBubble
               key={msg.id}
-              className={`flex gap-4 max-w-3xl ${isAi ? 'mr-auto' : 'ml-auto flex-row-reverse'}`}
-            >
-              {/* Avatar */}
-              <div
-                className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm font-semibold shrink-0 shadow-sm ${
-                  isAi
-                    ? 'bg-zinc-900 border-zinc-800 text-indigo-400'
-                    : 'bg-indigo-950 border-indigo-900 text-indigo-300'
-                }`}
-              >
-                {isAi ? <Bot size={16} /> : <User size={16} />}
+              message={msg}
+              selectedCitation={selectedCitation}
+              onCitationClick={onSelectCitation}
+            />
+          ))}
+
+          {/* Stream Error */}
+          {streamError && (
+            <div className="flex gap-3 max-w-3xl mr-auto">
+              <Avatar className="h-7 w-7 shrink-0 border border-destructive bg-destructive/10">
+                <AvatarFallback className="bg-destructive/10 text-destructive">
+                  <AlertTriangle size={14} />
+                </AvatarFallback>
+              </Avatar>
+              <div className="rounded-xl px-4 py-3 border border-destructive bg-destructive/10 text-xs leading-relaxed space-y-1">
+                <h5 className="font-medium text-destructive">
+                  Processing Error
+                </h5>
+                <p className="text-muted-foreground">{streamError}</p>
               </div>
+            </div>
+          )}
 
-              {/* Message Bubble */}
-              <div className="flex flex-col gap-2 max-w-full">
-                <div
-                  className={`rounded-2xl px-4.5 py-3.5 text-sm leading-relaxed border ${
-                    isAi
-                      ? 'bg-zinc-900/40 border-zinc-900/60 text-zinc-200'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-100'
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
+          {/* Waiting indicator (before first token) */}
+          {isWaiting && !streamError && (
+            <div className="flex gap-3 max-w-3xl mr-auto">
+              <Avatar className="h-7 w-7 shrink-0 border border-border bg-muted">
+                <AvatarFallback className="bg-muted text-muted-foreground">
+                  <Bot size={14} />
+                </AvatarFallback>
+              </Avatar>
+              <div className="rounded-xl px-4 py-3 border border-border bg-muted/50">
+                <TypingIndicator />
+              </div>
+            </div>
+          )}
 
-                {/* Citations block */}
-                {hasCitations && (
-                  <div className="border border-zinc-900 rounded-xl bg-zinc-900/20 overflow-hidden">
-                    <button
-                      onClick={() => toggleCitation(msg.id)}
-                      className="flex items-center justify-between w-full px-4 py-2 text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition"
-                    >
-                      <span className="flex items-center gap-1.5 font-sans">
-                        <FileText size={12} />
-                        Citations ({msg.payload.citations.length})
-                      </span>
-                      {showCitList ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </button>
-                    {showCitList && (
-                      <div className="px-4 pb-3 space-y-2 border-t border-zinc-900/60 pt-2 bg-zinc-950/20">
-                        {msg.payload.citations.map((c: any, idx: number) => (
-                          <div key={idx} className="text-xs text-zinc-400">
-                            <div className="font-semibold text-indigo-400 mb-0.5">
-                              [Citation {c.index}] {c.company} ({c.filing_type} {c.year}) — {c.section} (Page {c.page})
-                            </div>
-                            <div className="pl-3 border-l-2 border-zinc-800 text-zinc-500 italic">
-                              "{c.excerpt}"
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+          {/* Skeleton for loading history */}
+          {isLoading && messages.length === 0 && !streamError && (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex gap-3">
+                  <Skeleton className="h-7 w-7 rounded-full shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
-                )}
-              </div>
+                </div>
+              ))}
             </div>
-          );
-        })}
+          )}
 
-        {/* Loading Indicator */}
-        {isLoading && (
-          <div className="flex gap-4 max-w-3xl mr-auto animate-pulse">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-indigo-400 shrink-0">
-              <Bot size={16} />
-            </div>
-            <div className="rounded-2xl px-5 py-3.5 bg-zinc-900/40 border border-zinc-900/60 text-zinc-450 text-sm">
-              Thinking and retrieving passages...
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
 
       {/* Input Bar */}
-      <div className="p-4 bg-zinc-950 border-t border-zinc-900">
-        <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto">
-          <input
-            type="text"
-            required
-            disabled={isLoading}
+      <div className="p-4 bg-background shrink-0">
+        <div className="relative max-w-3xl mx-auto">
+          <textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="w-full rounded-2xl border border-zinc-850 bg-zinc-900/40 px-5 py-4 pr-14 text-sm text-zinc-100 placeholder-zinc-550 focus:border-zinc-750 focus:bg-zinc-900/65 focus:outline-none transition-all shadow-md"
-            placeholder="Ask anything about Apple, Microsoft, NVIDIA, Amazon or Alphabet..."
+            onChange={handleInput}
+            onKeyDown={handleKeyDown}
+            disabled={isLoading}
+            rows={1}
+            className="w-full rounded-2xl border border-input bg-muted/50 px-4 py-3 pr-12 text-sm text-foreground placeholder-muted-foreground focus:border-ring focus:outline-none transition-colors resize-none shadow-sm"
+            style={{ minHeight: '44px', maxHeight: '200px' }}
+            placeholder="Ask about SEC filings..."
           />
-          <button
-            type="submit"
-            disabled={isLoading || !input.trim()}
-            className="absolute right-3.5 top-3.5 flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-655 text-white hover:bg-indigo-500 transition disabled:bg-zinc-800 disabled:text-zinc-600 disabled:opacity-40 shadow-sm"
-          >
-            <Send size={16} />
-          </button>
-        </form>
+
+          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            {/* Stop button */}
+            {isLoading && onStopGeneration && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onStopGeneration}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
+                aria-label="Stop generation"
+              >
+                <Square size={12} fill="currentColor" />
+              </Button>
+            )}
+
+            {/* Send button */}
+            <Button
+              onClick={handleSubmit}
+              disabled={isLoading || !input.trim()}
+              size="icon"
+              className="h-8 w-8 rounded-full shadow-md"
+              aria-label="Send message"
+            >
+              <Send size={14} />
+            </Button>
+          </div>
+
+          {/* Keyboard hint */}
+          {!isLoading && (
+            <div className="mt-2 flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+              <kbd className="px-1.5 py-0.5 rounded-md border border-border bg-muted text-[9px] font-medium">
+                Enter
+              </kbd>{' '}
+              to send ·{' '}
+              <kbd className="px-1.5 py-0.5 rounded-md border border-border bg-muted text-[9px] font-medium">
+                Shift + Enter
+              </kbd>{' '}
+              for newline
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

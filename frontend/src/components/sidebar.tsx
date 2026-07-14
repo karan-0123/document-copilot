@@ -1,6 +1,28 @@
 import React from 'react';
-import type { ChatThread } from '../lib/api';
-import { Plus, MessageSquare, Trash2, LogOut, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import type { ChatThread } from '@/lib/api';
+import { Plus, LogOut, User, MessageSquare, MoreHorizontal, Pen, Trash2 } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import {
+  Sidebar as ShadcnSidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuAction,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface SidebarProps {
   threads: ChatThread[];
@@ -8,10 +30,37 @@ interface SidebarProps {
   onSelectThread: (id: string) => void;
   onCreateThread: () => void;
   onDeleteThread: (id: string) => void;
+  onRenameThread: (id: string, title: string) => void;
   userEmail: string | undefined;
   onSignOut: () => void;
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
+}
+
+/**
+ * Group threads by date: Today, Previous 7 Days, Older.
+ */
+function groupThreadsByDate(threads: ChatThread[]) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const groups: { label: string; threads: ChatThread[] }[] = [
+    { label: 'Today', threads: [] },
+    { label: 'Previous 7 days', threads: [] },
+    { label: 'Older', threads: [] },
+  ];
+
+  for (const thread of threads) {
+    const date = new Date(thread.updated_at || thread.created_at);
+    if (date >= todayStart) {
+      groups[0].threads.push(thread);
+    } else if (date >= weekAgo) {
+      groups[1].threads.push(thread);
+    } else {
+      groups[2].threads.push(thread);
+    }
+  }
+
+  return groups.filter((g) => g.threads.length > 0);
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -20,107 +69,129 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectThread,
   onCreateThread,
   onDeleteThread,
+  onRenameThread,
   userEmail,
   onSignOut,
-  isOpen,
-  setIsOpen,
 }) => {
+  const groups = groupThreadsByDate(threads);
+  const { isMobile } = useSidebar();
+
   return (
-    <div
-      className={`relative flex flex-col border-r border-zinc-800 bg-zinc-950 text-zinc-200 transition-all duration-300 ${
-        isOpen ? 'w-72' : 'w-0 border-r-0'
-      }`}
-    >
-      {/* Toggle button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="absolute -right-4 top-6 z-40 flex h-8 w-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 shadow-md transition"
-      >
-        {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-      </button>
+    <ShadcnSidebar variant="sidebar">
+      <SidebarHeader>
+        <div className="flex h-12 items-center px-2">
+          <span className="text-xs font-bold tracking-widest uppercase text-muted-foreground">
+            Document Copilot
+          </span>
+        </div>
+        <div className="px-2 pb-2">
+          <Button
+            variant="outline"
+            onClick={onCreateThread}
+            className="w-full justify-start gap-2 h-9 text-xs font-medium"
+          >
+            <Plus size={14} />
+            New chat
+          </Button>
+        </div>
+      </SidebarHeader>
 
-      {isOpen && (
-        <>
-          <div className="flex h-16 items-center px-6 border-b border-zinc-800">
-            <span className="text-lg font-bold tracking-wider bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-              DOCUMENT COPILOT
-            </span>
+      <SidebarContent>
+        {threads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground h-40">
+            <MessageSquare size={24} className="mb-2 opacity-20" />
+            <p className="text-xs font-medium">No conversations</p>
           </div>
+        ) : (
+          groups.map((group) => (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel className="text-[10px] tracking-wider uppercase text-muted-foreground">
+                {group.label}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.threads.map((thread) => (
+                    <SidebarMenuItem key={thread.id}>
+                      <SidebarMenuButton
+                        isActive={activeThreadId === thread.id}
+                        onClick={() => onSelectThread(thread.id)}
+                        className="text-xs h-8"
+                      >
+                        <span>{thread.title || 'Untitled Chat'}</span>
+                      </SidebarMenuButton>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <SidebarMenuAction showOnHover>
+                            <MoreHorizontal />
+                            <span className="sr-only">More</span>
+                          </SidebarMenuAction>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          className="w-48 rounded-lg"
+                          side={isMobile ? "bottom" : "right"}
+                          align={isMobile ? "end" : "start"}
+                        >
+                          <DropdownMenuItem
+                            onClick={() => {
+                              const newTitle = window.prompt("Rename chat:", thread.title);
+                              if (newTitle && newTitle.trim()) {
+                                onRenameThread(thread.id, newTitle.trim());
+                              }
+                            }}
+                          >
+                            <Pen className="text-muted-foreground mr-2 h-4 w-4" />
+                            <span>Rename</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDeleteThread(thread.id)}>
+                            <Trash2 className="text-muted-foreground mr-2 h-4 w-4" />
+                            <span>Delete</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        )}
+      </SidebarContent>
 
-          {/* New Chat Button */}
-          <div className="p-4">
-            <button
-              onClick={onCreateThread}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 py-3 text-sm font-semibold hover:bg-zinc-800/80 hover:border-zinc-700 transition duration-200"
-            >
-              <Plus size={16} />
-              New chat
-            </button>
-          </div>
-
-          {/* Threads List */}
-          <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-            <div className="px-3 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-              Conversations
-            </div>
-            {threads.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-zinc-500 italic">
-                No recent chats
-              </div>
-            ) : (
-              threads.map((thread) => (
-                <div
-                  key={thread.id}
-                  className={`group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition cursor-pointer ${
-                    activeThreadId === thread.id
-                      ? 'bg-zinc-800/80 text-zinc-100 font-medium'
-                      : 'text-zinc-400 hover:bg-zinc-900/60 hover:text-zinc-200'
-                  }`}
-                  onClick={() => onSelectThread(thread.id)}
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <MessageSquare size={16} className={activeThreadId === thread.id ? 'text-indigo-400' : 'text-zinc-500'} />
-                    <span className="truncate">{thread.title || 'Untitled Chat'}</span>
+                  <Avatar className="h-7 w-7 border border-border">
+                    <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                      <User size={14} />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-xs leading-tight">
+                    <span className="truncate font-semibold">{userEmail}</span>
+                    <span className="truncate text-muted-foreground">Free Tier</span>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteThread(thread.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 rounded transition"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Footer / User Profile */}
-          <div className="border-t border-zinc-800 p-4 bg-zinc-950/40">
-            <div className="flex items-center justify-between gap-2 rounded-xl p-2 bg-zinc-900/30">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-950 text-indigo-300 font-semibold border border-indigo-900">
-                  <User size={16} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-zinc-500 font-medium">Session user</p>
-                  <p className="truncate text-xs font-semibold text-zinc-300" title={userEmail}>
-                    {userEmail}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={onSignOut}
-                className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-800/40 rounded-lg transition"
-                title="Sign out"
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                side="bottom"
+                align="end"
+                sideOffset={4}
               >
-                <LogOut size={16} />
-              </button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+                <DropdownMenuItem onClick={onSignOut} className="text-red-500 focus:bg-red-500/10 focus:text-red-500">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+    </ShadcnSidebar>
   );
 };

@@ -214,6 +214,7 @@ async def get_thread_messages(
                     formatted_citations.append(
                         {
                             "index": citation.get("citation_index"),
+                            "chunk_id": str(citation.get("chunk_id")) if citation.get("chunk_id") else None,
                             "company": metadata.get("company", "Unknown"),
                             "filing_type": metadata.get("filing_type", "Unknown"),
                             "year": metadata.get("year", "Unknown"),
@@ -232,3 +233,30 @@ async def get_thread_messages(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve messages: {str(e)}",
         )
+
+
+@chat_router.get("/chunks/{chunk_id}")
+async def get_chunk_context(
+    chunk_id: UUID,
+    user: CurrentUser = Depends(get_current_user),
+):
+    """Retrieve the full text of a chunk and its sequential neighbors (before/after)."""
+    from app.database import get_chunk_with_neighbors
+    from app.database.session import SessionLocal
+
+    with SessionLocal() as db:
+        chunks = get_chunk_with_neighbors(db, chunk_id, before=1, after=1)
+        if not chunks:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chunk not found"
+            )
+
+        return [
+            {
+                "id": str(c.id),
+                "text": c.text,
+                "chunk_index": c.chunk_index,
+            } for c in chunks
+        ]
+

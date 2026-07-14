@@ -14,7 +14,7 @@ Track progress here. Order matters: each phase unlocks the next. The architectur
 - [x] Create Supabase project ([guide](../guides/supabase-setup.md))
 - [x] Save credentials: Project URL, anon key, service_role key, direct `DATABASE_URL`
 - [x] Configure Supabase Auth: email provider on; disable email confirm for local dev if needed
-- [x] Create OpenAI API key with access to chat + embedding models
+- [x] Create Gemini API key (used for both chat LLM `gemini-2.5-flash` and embeddings `gemini-embedding-2`)
 - [x] Copy `backend/.env.example` → `backend/.env` and fill values
 - [x] Copy `frontend/.env.example` → `frontend/.env` and fill values
 - [x] Verify sample corpus: `uv run data/download.py` (already have 5 tickers × 5 years of 10-Ks)
@@ -100,7 +100,7 @@ Client brief: curated SEC corpus must be searchable and citable. Without this ph
 - [x] Chunking strategy: section-aware splits with page/section metadata and token counts
 - [x] Write `source_documents` rows (Markdown body + metadata)
 - [x] Write `document_chunks` rows (text + metadata, no embeddings yet)
-- [x] Embedding job: OpenAI embeddings → store in `document_chunks.embedding`
+- [x] Embedding job: Gemini embeddings (`gemini-embedding-2`, 768-dim) → store in `document_chunks.embedding`
 - [x] Populate generated `search_vector` / `tsvector` for full-text search
 - [x] CLI or script: `ingest` command to process `data/downloads/` into Supabase
 - [x] Verify: all 25 sample 10-Ks ingested; spot-check chunk text and metadata in DB
@@ -141,14 +141,14 @@ Client brief trust contract: never invent facts, always cite, show underlying pa
 
 Maps directly to client brief UX and "definition of done" pilot criteria.
 
-- [ ] Thread sidebar: list past conversations, create new thread
-- [ ] Message list with streaming status indicators
-- [ ] Citation chips/links on assistant messages (filing, date, page/section)
-- [ ] Source passage panel: expandable excerpt so analyst can verify in one click
-- [ ] Empty states: no threads, no corpus match, first-time user
-- [ ] Error states: 401, network/CORS, retrieval failure, grounding failure — friendly + debuggable
-- [ ] Markdown rendering for assistant answers
-- [ ] Responsive layout (desktop-first; mobile out of scope per brief)
+- [x] Thread sidebar: list past conversations, create new thread
+- [x] Message list with streaming status indicators
+- [x] Citation chips/links on assistant messages (filing, date, page/section)
+- [x] Source passage panel: expandable excerpt so analyst can verify in one click
+- [x] Empty states: no threads, no corpus match, first-time user
+- [x] Error states: 401, network/CORS, retrieval failure, grounding failure — friendly + debuggable
+- [x] Markdown rendering for assistant answers
+- [x] Responsive layout (desktop-first; mobile out of scope per brief)
 
 ---
 

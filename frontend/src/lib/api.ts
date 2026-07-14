@@ -56,4 +56,10 @@ export const api = {
     const res = await request(`/chats/threads/${threadId}/messages`);
     return res.json();
   },
+
+  async getChunkContext(chunkId: string): Promise<{ id: string; text: string; chunk_index: number }[]> {
+    const res = await request(`/chat/chunks/${chunkId}`);
+    return res.json();
+  },
 };
+

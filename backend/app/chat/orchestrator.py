@@ -1,5 +1,6 @@
 import re
 import json
+import asyncio
 from uuid import UUID
 from typing import AsyncGenerator
 
@@ -12,9 +13,8 @@ from app.database import (
 from app.database.session import SessionLocal
 from app.retrieval import DocumentRetriever
 from app.assistant.deps import DocumentAgentDeps
-from app.assistant.agent import agent
+from app.assistant.agent import run_agent
 from app.grounding.validator import validate_grounding, GroundingValidationError
-from app.chat.messages import convert_to_agent_history
 
 def extract_metadata_filters(query: str) -> tuple[list[str] | None, list[int] | None]:
     """Helper to deterministically extract tickers and years from the query to seed filters."""
@@ -45,12 +45,12 @@ async def orchestrate_chat_turn(
 ) -> AsyncGenerator[str, None]:
     """Orchestrates a single chat turn: runs retrieval, Pydantic AI agent, validation, and saves to DB."""
     if not client_messages:
-        yield "3:No messages provided\n"
+        yield f"3:{json.dumps('No messages provided')}\n"
         return
 
     last_user_message = client_messages[-1].get("content", "").strip()
     if not last_user_message:
-        yield "3:User query cannot be empty\n"
+        yield f"3:{json.dumps('User query cannot be empty')}\n"
         return
 
     # 1. Initialize DB Session and Retriever
@@ -67,47 +67,17 @@ async def orchestrate_chat_turn(
         fiscal_years=years,
     )
 
-    # 3. Convert client chat history (excluding last user message)
-    agent_history = convert_to_agent_history(client_messages[:-1])
+    # 3. Convert client chat history to plain dicts for the Groq API (excluding last user message)
+    message_history = []
+    for msg in client_messages[:-1]:
+        role = msg.get("role")
+        content = msg.get("content", "").strip()
+        if content and role in ("user", "assistant"):
+            message_history.append({"role": role, "content": content})
 
-    last_len = 0
-    grounded_answer = None
-
-    try:
-        # 4. Execute Pydantic AI Agent structured stream
-        async with agent.run_stream(
-            last_user_message,
-            deps=deps,
-            message_history=agent_history
-        ) as result:
-            async for model in result.stream_structured():
-                # Extract incremental answer text delta to stream to frontend
-                if model.answer:
-                    new_text = model.answer
-                    delta = new_text[last_len:]
-                    if delta:
-                        yield f"0:{json.dumps(delta)}\n"
-                        last_len = len(new_text)
-            
-            # Fetch final fully-parsed GroundedAnswer Pydantic model
-            grounded_answer = await result.get_output()
-
-    except Exception as e:
-        yield f"3:Error during agent run: {str(e)}\n"
-        db.close()
-        return
-
-    db.close()  # Close DB session after LLM generation completes
-
-    # 5. Perform Grounding and Citation validation
-    try:
-        citation_payloads = validate_grounding(grounded_answer, deps.retrieved_passages)
-    except GroundingValidationError as gve:
-        # Fallback error stream event
-        yield f"3:Grounding validation failed: {str(gve)}\n"
-        return
-
-    # 6. Persist User and Assistant messages to Supabase
+    # 4. Persist User message to Supabase IMMEDIATELY before generation
+    seq_user = 1
+    seq_assistant = 2
     try:
         # Fetch current message count to get correct sequences
         existing = await get_messages(supabase_client, thread_id)
@@ -122,7 +92,100 @@ async def orchestrate_chat_turn(
             content=last_user_message,
             sequence=seq_user,
         )
+    except Exception as persist_error:
+        yield f"3:{json.dumps(f'Failed to save user message: {str(persist_error)}')}\n"
+        db.close()
+        return
 
+    # 5. Pre-retrieve passages and inject into prompt (instead of agent tool calling)
+    from app.retrieval import RetrievalFilter
+
+    filters = None
+    if tickers or years:
+        filters = RetrievalFilter(tickers=tickers, fiscal_years=years)
+
+    try:
+        passages = retriever.search_filings(db=db, query=last_user_message, filters=filters)
+    except Exception as retrieval_err:
+        yield f"3:{json.dumps(f'Retrieval failed: {str(retrieval_err)}')}\n"
+        db.close()
+        return
+
+    # Register all retrieved passages in deps for grounding validation
+    for p in passages:
+        deps.retrieved_passages[str(p.chunk_id)] = p
+
+    # Build the augmented prompt with context
+    if passages:
+        augmented_prompt = (
+            f"## RETRIEVED CONTEXT PASSAGES\n\n"
+            + "\n".join(
+                f"**Passage {i+1}** — Chunk ID: {p.chunk_id}\n"
+                f"[{p.company_name} ({p.ticker}) | {p.filing_type} FY{p.fiscal_year} | "
+                f"Section: {p.section or 'N/A'} | Page: {p.page or 'N/A'}]\n"
+                f"{p.text.strip()}\n"
+                for i, p in enumerate(passages)
+            )
+            + f"\n---\n\n## USER QUESTION\n\n{last_user_message}"
+        )
+    else:
+        # No passages found — agent should refuse per instructions
+        augmented_prompt = (
+            f"## RETRIEVED CONTEXT PASSAGES\n\n"
+            f"No relevant filings were found for this query.\n\n"
+            f"---\n\n## USER QUESTION\n\n{last_user_message}"
+        )
+
+    db.close()  # Close DB session after retrieval (before LLM call)
+
+    grounded_answer = None
+
+    # Retry up to 3 times with exponential backoff for transient Groq errors
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Call Groq API directly with JSON mode (no pydantic-ai streaming)
+            # Groq responds in ~1-2s, so buffering is fine — no need for incremental streaming
+            grounded_answer = await run_agent(
+                augmented_prompt=augmented_prompt,
+                message_history=message_history,
+            )
+
+            # Send the complete answer as stream text
+            if grounded_answer and grounded_answer.answer:
+                yield f"0:{json.dumps(grounded_answer.answer)}\n"
+            break  # Success — exit the retry loop
+
+        except Exception as e:
+            err_str = str(e)
+            is_429 = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
+            is_503 = "503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()
+            is_retryable = is_429 or is_503
+
+            if is_retryable and attempt < max_retries - 1:
+                wait_secs = (5 * (attempt + 1)) if is_429 else (2 ** attempt)
+                await asyncio.sleep(wait_secs)
+                continue  # Retry
+
+            # Build a user-friendly message for quota exhaustion
+            if is_429:
+                friendly = "Groq free-tier quota exhausted. Please wait a minute and try again."
+            else:
+                friendly = f"Error during agent run: {err_str}"
+
+            yield f"3:{json.dumps(friendly)}\n"
+            return
+
+    # 6. Perform Grounding and Citation validation
+    try:
+        citation_payloads = validate_grounding(grounded_answer, deps.retrieved_passages)
+    except GroundingValidationError as gve:
+        # Fallback error stream event (3: events require JSON-encoded strings)
+        yield f"3:{json.dumps(f'Grounding validation failed: {str(gve)}')}\n"
+        return
+
+    # 6. Persist Assistant message to Supabase
+    try:
         # Map citations to payload format for the client
         client_citations = []
         for index, item in enumerate(citation_payloads, 1):
@@ -156,4 +219,4 @@ async def orchestrate_chat_turn(
             )
 
     except Exception as persist_error:
-        yield f"3:Persistence failed: {str(persist_error)}\n"
+        yield f"3:{json.dumps(f'Persistence failed: {str(persist_error)}')}\n"

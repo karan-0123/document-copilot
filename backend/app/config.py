@@ -19,12 +19,14 @@ class Settings(BaseSettings):
     supabase_anon_key: str
     supabase_service_role_key: str
     database_url: str
-    openai_api_key: str
-    openai_llm_model: str = "gpt-5.5"
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_embedding_dimensions: int = 1536
-    retrieval_limit: int = 10
-    retrieval_candidate_k: int = 50
+    openai_api_key: str | None = None
+    gemini_api_key: str
+    groq_api_key: str
+    openai_llm_model: str = "llama-3.3-70b-versatile"
+    openai_embedding_model: str = "gemini-embedding-2"  # must match model used to embed stored chunks
+    openai_embedding_dimensions: int = 768
+    retrieval_limit: int = 5       # top passages sent to LLM (keep low to save free-tier tokens)
+    retrieval_candidate_k: int = 20  # candidate pool before RRF fusion
     rrf_k: int = 60
     allowed_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
