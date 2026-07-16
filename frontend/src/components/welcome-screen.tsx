@@ -9,9 +9,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectPrompt }) 
   const suggestions = [
     {
       title: 'Revenue Trends',
-      desc: "Summarize Apple's revenue mix and product segment trends from 2021 to 2025.",
+      desc: "What was Apple's total net sales and iPhone revenue across its filings?",
       prompt:
-        "Summarize Apple's revenue mix and product segment trends from 2021 to 2025.",
+        "What was Apple's total net sales and iPhone revenue across its filings?",
       icon: <TrendingUp size={16} />,
     },
     {

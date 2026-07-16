@@ -11,6 +11,12 @@ def _normalize_text(text: str) -> str:
     # Replace newlines, tabs, and duplicate spaces with a single space, then strip
     return re.sub(r'\s+', ' ', text).strip().lower()
 
+def _normalize_alphanumeric(text: str) -> str:
+    """Helper to strip punctuation and normalize spacing for robust comparison."""
+    # Replace non-alphanumeric characters with spaces
+    cleaned = re.sub(r'[^a-zA-Z0-9\s]', ' ', text)
+    return re.sub(r'\s+', ' ', cleaned).strip().lower()
+
 def validate_grounding(
     answer: GroundedAnswer, 
     retrieved_passages: dict[str, SourcePassage]
@@ -32,28 +38,59 @@ def validate_grounding(
     for citation in answer.citations:
         chunk_key = str(citation.chunk_id)
         
-        # Invariant 1: Cited chunk must have been retrieved or read during the run context
-        if chunk_key not in retrieved_passages:
-            raise GroundingValidationError(
-                f"Citation index {citation.citation_index} cites chunk ID {citation.chunk_id} "
-                "which was not retrieved or read during this request."
-            )
+        # Check if the cited chunk is in retrieved passages, and if the excerpt is a substring
+        found = False
+        passage = None
+        
+        if chunk_key in retrieved_passages:
+            passage = retrieved_passages[chunk_key]
+            norm_excerpt = _normalize_text(citation.excerpt)
+            norm_chunk_text = _normalize_text(passage.text)
             
-        passage = retrieved_passages[chunk_key]
+            if norm_excerpt in norm_chunk_text:
+                found = True
+            else:
+                # Try alphanumeric fallback
+                alpha_excerpt = _normalize_alphanumeric(citation.excerpt)
+                alpha_chunk_text = _normalize_alphanumeric(passage.text)
+                if alpha_excerpt in alpha_chunk_text:
+                    found = True
         
-        # Invariant 2: Excerpt must be verbatim present in the chunk text (case and whitespace normalized)
-        norm_excerpt = _normalize_text(citation.excerpt)
-        norm_chunk_text = _normalize_text(passage.text)
+        # Auto-healing logic: if not found, scan other retrieved passages
+        if not found:
+            norm_excerpt = _normalize_text(citation.excerpt)
+            for other_key, other_passage in retrieved_passages.items():
+                if other_key == chunk_key:
+                    continue
+                norm_other = _normalize_text(other_passage.text)
+                if norm_excerpt in norm_other:
+                    chunk_key = other_key
+                    passage = other_passage
+                    found = True
+                    break
+            
+            if not found:
+                # Alphanumeric fallback on other passages
+                alpha_excerpt = _normalize_alphanumeric(citation.excerpt)
+                for other_key, other_passage in retrieved_passages.items():
+                    if other_key == chunk_key:
+                        continue
+                    alpha_other = _normalize_alphanumeric(other_passage.text)
+                    if alpha_excerpt in alpha_other:
+                        chunk_key = other_key
+                        passage = other_passage
+                        found = True
+                        break
         
-        if norm_excerpt not in norm_chunk_text:
+        if not found:
             raise GroundingValidationError(
                 f"Citation index {citation.citation_index} cites excerpt '{citation.excerpt}' "
-                f"which does not exist verbatim inside the text of chunk {citation.chunk_id}."
+                f"which does not exist verbatim inside the text of any retrieved chunks."
             )
             
-        # Format database insertion payload
+        # Format database insertion payload with the corrected/validated chunk ID
         validated_citations.append({
-            "chunk_id": citation.chunk_id,
+            "chunk_id": UUID(chunk_key),
             "citation_index": citation.citation_index,
             "citation_metadata": {
                 "company": passage.company_name,

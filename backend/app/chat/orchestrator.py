@@ -33,10 +33,47 @@ def extract_metadata_filters(query: str) -> tuple[list[str] | None, list[int] | 
     if "alphabet" in query_lower or "google" in query_lower or "googl" in query_lower:
         tickers.append("GOOGL")
         
-    # Find any years between 2020 and 2026
-    years = [int(y) for y in re.findall(r'\b(202[0-6])\b', query)]
+    years = set()
     
-    return (tickers or None, years or None)
+    # 1. Match explicit ranges, e.g. 2021-2025, 2021 to 2025, 2021–2025 (dash/en-dash)
+    range_pattern = r'\b(202[0-6])\s*(?:-|–|to|through)\s*(202[0-6])\b'
+    for start, end in re.findall(range_pattern, query):
+        for y in range(int(start), int(end) + 1):
+            years.add(y)
+            
+    # 2. Match abbreviated ranges, e.g. 2021-25 or 2021–25
+    abbr_range_pattern = r'\b(202[0-6])\s*(?:-|–)\s*(2[0-6])\b'
+    for start, end_short in re.findall(abbr_range_pattern, query):
+        end = 2000 + int(end_short)
+        for y in range(int(start), end + 1):
+            years.add(y)
+            
+    # 3. Match general two 4-digit years separated by words/spaces if range words are present in the query
+    # E.g. "between 2021 and 2025" or "from 2021 to 2025"
+    all_4digit_years = [int(y) for y in re.findall(r'\b(202[0-6])\b', query)]
+    if len(all_4digit_years) == 2 and any(w in query_lower for w in ["to", "through", "and", "between"]):
+        for y in range(min(all_4digit_years), max(all_4digit_years) + 1):
+            years.add(y)
+            
+    # 4. Match single 4-digit years
+    for y in all_4digit_years:
+        years.add(y)
+        
+    # 5. Match single 2-digit years with 'FY' prefix, e.g. FY21, FY 25, or range FY21-FY25
+    # First match expressions like FY21-FY25 or FY21 to FY25
+    fy_range_pattern = r'\bfy\s*(202[0-6]|[2-6][0-9])\s*(?:-|–|to|through)\s*fy\s*(202[0-6]|[2-6][0-9])\b'
+    for start_fy, end_fy in re.findall(fy_range_pattern, query_lower):
+        start = int(start_fy) if len(start_fy) == 4 else 2000 + int(start_fy)
+        end = int(end_fy) if len(end_fy) == 4 else 2000 + int(end_fy)
+        for y in range(start, end + 1):
+            years.add(y)
+            
+    # Then match single FY matches
+    for m in re.findall(r'\bfy\s*(202[0-6]|[2-6][0-9])\b', query_lower):
+        val = int(m) if len(m) == 4 else 2000 + int(m)
+        years.add(val)
+        
+    return (tickers or None, sorted(list(years)) or None)
 
 async def orchestrate_chat_turn(
     thread_id: UUID,
@@ -104,8 +141,16 @@ async def orchestrate_chat_turn(
     if tickers or years:
         filters = RetrievalFilter(tickers=tickers, fiscal_years=years)
 
+    # Dynamically scale retrieval limit for multi-entity/multi-year synthesis queries
+    limit = settings.retrieval_limit
+    if tickers and len(tickers) > 1:
+        limit = max(limit, len(tickers) * 3)
+    if years and len(years) > 2:
+        limit = max(limit, len(years) * 2)
+    limit = min(limit, 15)  # Cap at 15 to avoid token issues / rate limits
+
     try:
-        passages = retriever.search_filings(db=db, query=last_user_message, filters=filters)
+        passages = retriever.search_filings(db=db, query=last_user_message, filters=filters, limit=limit)
     except Exception as retrieval_err:
         yield f"3:{json.dumps(f'Retrieval failed: {str(retrieval_err)}')}\n"
         db.close()
