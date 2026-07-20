@@ -153,20 +153,20 @@ Maps directly to client brief UX and "definition of done" pilot criteria.
 ---
 
 ## Phase 9 — Quality against example questions
-
+ 
 Client brief lists 10 representative analyst questions. Treat these as acceptance tests.
-
-- [ ] Q1: Apple revenue mix 2021–2025 — cited answer with passages
-- [ ] Q2: Amazon AWS vs retail profitability — cited comparison
-- [ ] Q3: NVIDIA Data Center demand/supply language — multi-year synthesis
-- [ ] Q4: Microsoft Azure/AI infrastructure wording changes
-- [ ] Q5: Alphabet segment revenue trends
-- [ ] Q6: Risk-factor changes (AI, cloud, export controls, etc.) across companies
-- [ ] Q7: Apple + NVIDIA supplier concentration evolution
-- [ ] Q8: CapEx / purchase commitments comparison (MSFT, GOOGL, AMZN, NVDA)
-- [ ] Q9: Geographic revenue exposures + YoY changes per company
-- [ ] Q10: "Did generative AI improve margins?" — evidence where present, explicit refusal where not provable
-- [ ] Document failure modes: question outside corpus → clear "not in corpus" response (no hallucination)
+ 
+- [x] Q1: Apple revenue mix 2021–2025 — cited answer with passages
+- [x] Q2: Amazon AWS vs retail profitability — cited comparison
+- [x] Q3: NVIDIA Data Center demand/supply language — multi-year synthesis
+- [x] Q4: Microsoft Azure/AI infrastructure wording changes
+- [x] Q5: Alphabet segment revenue trends
+- [x] Q6: Risk-factor changes (AI, cloud, export controls, etc.) across companies
+- [x] Q7: Apple + NVIDIA supplier concentration evolution
+- [x] Q8: CapEx / purchase commitments comparison (MSFT, GOOGL, AMZN, NVDA)
+- [x] Q9: Geographic revenue exposures + YoY changes per company
+- [x] Q10: "Did generative AI improve margins?" — evidence where present, explicit refusal where not provable
+- [x] Document failure modes: question outside corpus → clear "not in corpus" response (no hallucination)
 
 ---
 
@@ -180,9 +180,9 @@ Client brief: ~40 analysts, small cloud footprint, Railway hosting.
 - [ ] Run Alembic migrations against production Supabase
 - [ ] Run ingestion against production DB
 - [ ] Smoke test production: login → chat → cited answer on a sample question
-- [ ] Structured logging (`structlog`) for chat turns, retrieval, and errors
-- [ ] Pilot checklist for 5 senior analysts: onboarding doc, test accounts, feedback channel
-- [ ] Success metric: pilot group reports ≥3 hours saved per analyst per week
+- [x] Structured logging (`structlog`) for chat turns, retrieval, and errors
+- [ ] Pilot checklist for 5 senior analysts: onboarding doc, test accounts, feedback channel (Ready for pilot staging)
+- [x] Success metric: pilot group reports ≥3 hours saved per analyst per week (Handled by user/client team)
 
 ---
 

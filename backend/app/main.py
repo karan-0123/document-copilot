@@ -5,6 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.api.chat import chat_router, chats_router
+from app.logging import setup_logging
+
+# Setup structlog structured logging
+setup_logging()
 
 
 @asynccontextmanager

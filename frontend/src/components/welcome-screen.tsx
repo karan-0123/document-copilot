@@ -1,5 +1,5 @@
 import React from 'react';
-import { Send, TrendingUp, AlertTriangle, Cpu, FileText } from 'lucide-react';
+import { Send, TrendingUp, AlertTriangle, Cpu } from 'lucide-react';
 
 interface WelcomeScreenProps {
   onSelectPrompt: (prompt: string) => void;
@@ -33,8 +33,19 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onSelectPrompt }) 
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-6 max-w-2xl mx-auto h-full w-full">
       {/* Logo */}
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border bg-muted/30 text-foreground mb-6 shadow-sm">
-        <FileText size={28} strokeWidth={1.5} />
+      <div className="relative mb-7 group">
+        {/* Outer glow ring */}
+        <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-amber-600/30 via-stone-600/20 to-transparent blur-xl scale-110 opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
+        {/* Badge */}
+        <div className="relative h-[72px] w-[72px] rounded-3xl bg-gradient-to-br from-amber-900/80 via-stone-800/90 to-stone-950 p-[2px] shadow-2xl ring-1 ring-amber-700/25">
+          <div className="h-full w-full rounded-[22px] bg-stone-950 flex items-center justify-center overflow-hidden">
+            <img
+              src="/log.png"
+              alt="Document Copilot"
+              className="h-12 w-12 object-contain drop-shadow-md"
+            />
+          </div>
+        </div>
       </div>
 
       <h1 className="text-3xl font-semibold tracking-tight text-foreground mb-2">

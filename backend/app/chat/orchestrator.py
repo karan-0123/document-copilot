@@ -1,8 +1,12 @@
 import re
 import json
 import asyncio
+import time
 from uuid import UUID
 from typing import AsyncGenerator
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 from app.database import (
     get_service_role_client,
@@ -15,6 +19,7 @@ from app.retrieval import DocumentRetriever
 from app.assistant.deps import DocumentAgentDeps
 from app.assistant.agent import run_agent
 from app.grounding.validator import validate_grounding, GroundingValidationError
+from app.config import settings
 
 def extract_metadata_filters(query: str) -> tuple[list[str] | None, list[int] | None]:
     """Helper to deterministically extract tickers and years from the query to seed filters."""
@@ -81,6 +86,14 @@ async def orchestrate_chat_turn(
     client_messages: list[dict],
 ) -> AsyncGenerator[str, None]:
     """Orchestrates a single chat turn: runs retrieval, Pydantic AI agent, validation, and saves to DB."""
+    start_time = time.perf_counter()
+    logger.info(
+        "chat_turn_started",
+        thread_id=str(thread_id),
+        user_id=user_id,
+        message_count=len(client_messages),
+    )
+
     if not client_messages:
         yield f"3:{json.dumps('No messages provided')}\n"
         return
@@ -150,8 +163,26 @@ async def orchestrate_chat_turn(
     limit = min(limit, 15)  # Cap at 15 to avoid token issues / rate limits
 
     try:
+        retrieval_start = time.perf_counter()
         passages = retriever.search_filings(db=db, query=last_user_message, filters=filters, limit=limit)
+        retrieval_latency = time.perf_counter() - retrieval_start
+        logger.info(
+            "retrieval_completed",
+            thread_id=str(thread_id),
+            query=last_user_message,
+            tickers=tickers,
+            years=years,
+            limit=limit,
+            passage_count=len(passages),
+            latency_seconds=retrieval_latency,
+        )
     except Exception as retrieval_err:
+        logger.error(
+            "retrieval_failed",
+            thread_id=str(thread_id),
+            error=str(retrieval_err),
+            exc_info=True,
+        )
         yield f"3:{json.dumps(f'Retrieval failed: {str(retrieval_err)}')}\n"
         db.close()
         return
@@ -191,9 +222,17 @@ async def orchestrate_chat_turn(
         try:
             # Call Groq API directly with JSON mode (no pydantic-ai streaming)
             # Groq responds in ~1-2s, so buffering is fine — no need for incremental streaming
+            agent_start = time.perf_counter()
             grounded_answer = await run_agent(
                 augmented_prompt=augmented_prompt,
                 message_history=message_history,
+            )
+            agent_latency = time.perf_counter() - agent_start
+            logger.info(
+                "agent_run_completed",
+                thread_id=str(thread_id),
+                attempt=attempt + 1,
+                latency_seconds=agent_latency,
             )
 
             # Send the complete answer as stream text
@@ -203,6 +242,13 @@ async def orchestrate_chat_turn(
 
         except Exception as e:
             err_str = str(e)
+            logger.warning(
+                "agent_run_attempt_failed",
+                thread_id=str(thread_id),
+                attempt=attempt + 1,
+                error=err_str,
+                exc_info=True,
+            )
             is_429 = "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower()
             is_503 = "503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()
             is_retryable = is_429 or is_503
@@ -218,6 +264,12 @@ async def orchestrate_chat_turn(
             else:
                 friendly = f"Error during agent run: {err_str}"
 
+            logger.error(
+                "agent_run_failed",
+                thread_id=str(thread_id),
+                error=err_str,
+                exc_info=True,
+            )
             yield f"3:{json.dumps(friendly)}\n"
             return
 
@@ -226,6 +278,12 @@ async def orchestrate_chat_turn(
         citation_payloads = validate_grounding(grounded_answer, deps.retrieved_passages)
     except GroundingValidationError as gve:
         # Fallback error stream event (3: events require JSON-encoded strings)
+        logger.error(
+            "grounding_validation_failed",
+            thread_id=str(thread_id),
+            error=str(gve),
+            exc_info=True,
+        )
         yield f"3:{json.dumps(f'Grounding validation failed: {str(gve)}')}\n"
         return
 
@@ -263,5 +321,19 @@ async def orchestrate_chat_turn(
                 citations=citation_payloads,
             )
 
+        total_latency = time.perf_counter() - start_time
+        logger.info(
+            "chat_turn_completed",
+            thread_id=str(thread_id),
+            citations_count=len(citation_payloads),
+            latency_seconds=total_latency,
+        )
+
     except Exception as persist_error:
+        logger.error(
+            "chat_turn_persistence_failed",
+            thread_id=str(thread_id),
+            error=str(persist_error),
+            exc_info=True,
+        )
         yield f"3:{json.dumps(f'Persistence failed: {str(persist_error)}')}\n"

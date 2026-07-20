@@ -1,6 +1,78 @@
 import React from 'react';
 import { CitationBadge } from './citation-badge';
 
+function preprocessMarkdownTables(text: string): string {
+  const lines = text.split('\n');
+  const result: string[] = [];
+  let inTable = false;
+  let tableLines: string[] = [];
+
+  const flushTable = () => {
+    if (tableLines.length === 0) return;
+    
+    // Normalize cells and ensure outer pipes for every row
+    const normalizedTableLines = tableLines.map(line => {
+      const trimmed = line.trim();
+      let newLine = trimmed;
+      if (!newLine.startsWith('|')) newLine = '| ' + newLine;
+      if (!newLine.endsWith('|')) newLine = newLine + ' |';
+      return newLine;
+    });
+
+    // Check if the table already has a separator row
+    let hasSeparator = false;
+    if (normalizedTableLines.length >= 2) {
+      const secondLine = normalizedTableLines[1].trim();
+      const cells = secondLine.split('|').slice(1, -1);
+      if (cells.length > 0 && cells.every(cell => /^:?-+:?$/.test(cell.trim()))) {
+        hasSeparator = true;
+      }
+    }
+
+    // If it doesn't have a separator row, insert one after the first line (the header)
+    if (!hasSeparator && normalizedTableLines.length >= 1) {
+      const firstLine = normalizedTableLines[0];
+      // Count columns between outer pipes
+      let parts = firstLine.split('|');
+      if (firstLine.trim().startsWith('|')) parts = parts.slice(1);
+      if (firstLine.trim().endsWith('|') && parts.length > 0) parts = parts.slice(0, -1);
+      const numCols = parts.length;
+      
+      if (numCols > 0) {
+        const separator = '|' + Array(numCols).fill('---').join('|') + '|';
+        normalizedTableLines.splice(1, 0, separator);
+      }
+    }
+
+    result.push(...normalizedTableLines);
+    tableLines = [];
+    inTable = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isTableLine = line.includes('|');
+
+    if (isTableLine) {
+      if (!inTable) {
+        inTable = true;
+      }
+      tableLines.push(line);
+    } else {
+      if (inTable) {
+        flushTable();
+      }
+      result.push(line);
+    }
+  }
+
+  if (inTable) {
+    flushTable();
+  }
+
+  return result.join('\n');
+}
+
 interface MarkdownRendererProps {
   content: string;
   onCitationClick?: (index: number) => void;
@@ -10,6 +82,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   onCitationClick,
 }) => {
+  const normalizedContent = preprocessMarkdownTables(content);
   const citationRegex = /\[(\d+)\]/g;
 
   // Replace citation markers with CitationBadge components
@@ -86,7 +159,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
   // Main block parser
   const parseBlocks = () => {
-    const rawBlocks = content.split(/\n\s*\n/);
+    const rawBlocks = normalizedContent.split(/\n\s*\n/);
     return rawBlocks.map((block, idx) => {
       const trimmedBlock = block.trim();
       if (!trimmedBlock) return null;
@@ -186,7 +259,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
                       className="hover:bg-[var(--surface-1)] transition-colors"
                     >
                       {row.map((cell, cIdx) => (
-                        <td key={cIdx} className="px-3 py-2.5 whitespace-nowrap">
+                        <td key={cIdx} className="px-3 py-2.5 text-xs text-[var(--text-secondary)] max-w-[200px] break-words">
                           {formatInline(cell)}
                         </td>
                       ))}

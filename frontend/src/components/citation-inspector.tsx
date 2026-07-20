@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, ExternalLink, FileText } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { IconButton } from './icon-button';
 import { api } from '@/lib/api';
+import { MarkdownRenderer } from './markdown-renderer';
 
 interface CitationInspectorProps {
   citation: {
@@ -78,7 +78,7 @@ export const CitationInspector: React.FC<CitationInspectorProps> = ({
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0 select-text">
         <div className="p-5 space-y-5">
           {/* Source metadata card */}
           <div className="rounded-lg border border-[var(--border-default)] bg-[var(--surface-1)] p-4 space-y-3">
@@ -120,8 +120,8 @@ export const CitationInspector: React.FC<CitationInspectorProps> = ({
             <h5 className="text-[10px] font-semibold text-[var(--text-quaternary)] uppercase tracking-wider">
               Verbatim Excerpt
             </h5>
-            <div className="border-l-2 border-[var(--border-strong)] bg-[var(--surface-1)] rounded-r-lg p-3 italic text-sm text-[var(--text-secondary)] leading-relaxed">
-              "{citation.excerpt}"
+            <div className="border-l-2 border-[var(--border-strong)] bg-[var(--surface-1)] rounded-r-lg p-3 italic text-sm text-[var(--text-secondary)] leading-relaxed select-text">
+              <MarkdownRenderer content={citation.excerpt} />
             </div>
           </div>
 
@@ -170,9 +170,9 @@ export const CitationInspector: React.FC<CitationInspectorProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="whitespace-pre-wrap select-text">
-                        {chunk.text}
-                      </p>
+                      <div className="select-text">
+                        <MarkdownRenderer content={chunk.text} />
+                      </div>
                     </div>
                   );
                 })}
@@ -180,7 +180,7 @@ export const CitationInspector: React.FC<CitationInspectorProps> = ({
             )}
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };

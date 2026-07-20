@@ -1,4 +1,5 @@
 import re
+from uuid import UUID
 from app.assistant.outputs import GroundedAnswer, Citation
 from app.retrieval.types import SourcePassage
 
@@ -55,6 +56,20 @@ def validate_grounding(
                 alpha_chunk_text = _normalize_alphanumeric(passage.text)
                 if alpha_excerpt in alpha_chunk_text:
                     found = True
+                else:
+                    # Try sentence-level fallback if the excerpt contains multiple sentences
+                    sentences = [s.strip() for s in re.split(r'\.\s+', citation.excerpt) if s.strip()]
+                    if len(sentences) > 1:
+                        all_found = True
+                        for s in sentences:
+                            norm_s = _normalize_text(s)
+                            if norm_s not in norm_chunk_text:
+                                alpha_s = _normalize_alphanumeric(s)
+                                if alpha_s not in alpha_chunk_text:
+                                    all_found = False
+                                    break
+                        if all_found:
+                            found = True
         
         # Auto-healing logic: if not found, scan other retrieved passages
         if not found:
@@ -81,6 +96,30 @@ def validate_grounding(
                         passage = other_passage
                         found = True
                         break
+            
+            if not found:
+                # Sentence-level check fallback on other passages
+                sentences = [s.strip() for s in re.split(r'\.\s+', citation.excerpt) if s.strip()]
+                if len(sentences) > 1:
+                    for other_key, other_passage in retrieved_passages.items():
+                        if other_key == chunk_key:
+                            continue
+                        norm_other = _normalize_text(other_passage.text)
+                        alpha_other = _normalize_alphanumeric(other_passage.text)
+                        
+                        all_found = True
+                        for s in sentences:
+                            norm_s = _normalize_text(s)
+                            if norm_s not in norm_other:
+                                alpha_s = _normalize_alphanumeric(s)
+                                if alpha_s not in alpha_other:
+                                    all_found = False
+                                    break
+                        if all_found:
+                            chunk_key = other_key
+                            passage = other_passage
+                            found = True
+                            break
         
         if not found:
             raise GroundingValidationError(

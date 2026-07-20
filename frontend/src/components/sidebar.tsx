@@ -79,8 +79,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <ShadcnSidebar variant="sidebar">
       <SidebarHeader>
-        <div className="flex h-12 items-center px-2">
-          <span className="text-xs font-bold tracking-widest uppercase text-muted-foreground">
+        <div className="flex h-14 items-center gap-3 px-3">
+          {/* Logo Avatar — warm gradient ring */}
+          <div className="relative shrink-0 h-8 w-8">
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-amber-800/60 via-stone-800/80 to-stone-900 p-0.5 shadow-lg ring-1 ring-amber-700/30">
+              <div className="h-full w-full rounded-[10px] bg-stone-950 flex items-center justify-center overflow-hidden">
+                <img
+                  src="/log.png"
+                  alt="Document Copilot"
+                  className="h-6 w-6 object-contain drop-shadow-sm"
+                />
+              </div>
+            </div>
+          </div>
+          <span className="text-sm font-semibold text-foreground tracking-tight">
             Document Copilot
           </span>
         </div>

@@ -22,7 +22,7 @@ def mock_create(*args, **kwargs):
     input_data = kwargs.get("input", [])
     if isinstance(input_data, str):
         input_data = [input_data]
-    return MockResponse([MockData([0.1] * 1536) for _ in input_data])
+    return MockResponse([MockData([0.1] * 768) for _ in input_data])
 
 openai.resources.embeddings.Embeddings.create = mock_create
 

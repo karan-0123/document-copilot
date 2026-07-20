@@ -245,7 +245,7 @@ async def get_chunk_context(
     from app.database.session import SessionLocal
 
     with SessionLocal() as db:
-        chunks = get_chunk_with_neighbors(db, chunk_id, before=1, after=1)
+        chunks = get_chunk_with_neighbors(db, chunk_id, before=2, after=2)
         if not chunks:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

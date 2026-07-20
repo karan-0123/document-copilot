@@ -22,6 +22,12 @@ function Dashboard() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedCitation, setSelectedCitation] = useState<any | null>(null);
+
+  // Clear citation when active thread changes
+  useEffect(() => {
+    setSelectedCitation(null);
+  }, [activeThreadId]);
 
   // Sync session and token
   useEffect(() => {
@@ -214,16 +220,24 @@ function Dashboard() {
 
         <div className="flex flex-col flex-1 overflow-hidden h-full min-w-0">
           {activeThreadId ? (
-            <ChatArea
-              messages={messages as any}
-              onSendMessage={handleSendMessage}
-              isLoading={streamingLoading || loadingHistory}
-              threadTitle={activeThread?.title || 'Untitled Chat'}
-              streamError={error?.message}
-              onStopGeneration={stop}
-              selectedCitation={null}
-              onSelectCitation={() => {}}
-            />
+            <div className="flex flex-row flex-1 overflow-hidden h-full min-w-0">
+              <ChatArea
+                messages={messages as any}
+                onSendMessage={handleSendMessage}
+                isLoading={streamingLoading || loadingHistory}
+                threadTitle={activeThread?.title || 'Untitled Chat'}
+                streamError={error?.message}
+                onStopGeneration={stop}
+                selectedCitation={selectedCitation}
+                onSelectCitation={setSelectedCitation}
+              />
+              {selectedCitation && (
+                <CitationInspector
+                  citation={selectedCitation}
+                  onClose={() => setSelectedCitation(null)}
+                />
+              )}
+            </div>
           ) : (
             <WelcomeScreen onSelectPrompt={handleSelectPrompt} />
           )}

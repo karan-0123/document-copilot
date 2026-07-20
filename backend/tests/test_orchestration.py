@@ -78,7 +78,7 @@ def test_grounding_validator_missing_chunk():
     answer = GroundedAnswer(
         answer="Apple's revenue grew by 10% in 2024 [1].",
         citations=[
-            Citation(chunk_id=chunk_id_cited, citation_index=1, excerpt="revenue grew by 10%")
+            Citation(chunk_id=chunk_id_cited, citation_index=1, excerpt="revenue grew by 99%")
         ]
     )
     
@@ -86,7 +86,7 @@ def test_grounding_validator_missing_chunk():
     
     with pytest.raises(GroundingValidationError) as excinfo:
         validate_grounding(answer, retrieved_passages)
-    assert "was not retrieved" in str(excinfo.value)
+    assert "does not exist verbatim" in str(excinfo.value)
 
 def test_grounding_validator_excerpt_mismatch():
     """Test validation fails when the cited excerpt is not verbatim inside the chunk text."""

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { ChatMessage } from '@/lib/api';
 import { Send, AlertTriangle, Bot, Square } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -82,7 +81,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0 select-text">
         <div className="max-w-3xl mx-auto p-6 space-y-5">
           {messages.map((msg) => (
             <MessageBubble
@@ -141,47 +140,50 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
           <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input Bar */}
-      <div className="p-4 bg-background shrink-0">
-        <div className="relative max-w-3xl mx-auto">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleInput}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            rows={1}
-            className="w-full rounded-2xl border border-input bg-muted/50 px-4 py-3 pr-12 text-sm text-foreground placeholder-muted-foreground focus:border-ring focus:outline-none transition-colors resize-none shadow-sm"
-            style={{ minHeight: '44px', maxHeight: '200px' }}
-            placeholder="Ask about SEC filings..."
-          />
+      <div className="px-4 pt-4 pb-5 bg-background shrink-0">
+        <div className="max-w-3xl mx-auto">
+          {/* Unified Input Container */}
+          <div className="flex items-end gap-2 w-full rounded-2xl border border-input bg-muted/50 pl-4 pr-2 py-2 focus-within:border-ring focus-within:ring-1 focus-within:ring-ring transition-colors shadow-sm">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInput}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+              rows={1}
+              className="flex-1 bg-transparent border-0 p-0 focus:outline-none focus:ring-0 focus-visible:ring-0 resize-none text-sm text-foreground placeholder-muted-foreground py-1"
+              style={{ minHeight: '24px', maxHeight: '200px' }}
+              placeholder="Ask about SEC filings..."
+            />
 
-          <div className="absolute right-2 bottom-2 flex items-center gap-1">
-            {/* Stop button */}
-            {isLoading && onStopGeneration && (
+            <div className="flex items-center gap-1 shrink-0 h-8">
+              {/* Stop button */}
+              {isLoading && onStopGeneration && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onStopGeneration}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
+                  aria-label="Stop generation"
+                >
+                  <Square size={12} fill="currentColor" />
+                </Button>
+              )}
+
+              {/* Send button */}
               <Button
-                variant="ghost"
+                onClick={handleSubmit}
+                disabled={isLoading || !input.trim()}
                 size="icon"
-                onClick={onStopGeneration}
-                className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
-                aria-label="Stop generation"
+                className="h-8 w-8 rounded-full shadow-md"
+                aria-label="Send message"
               >
-                <Square size={12} fill="currentColor" />
+                <Send size={14} />
               </Button>
-            )}
-
-            {/* Send button */}
-            <Button
-              onClick={handleSubmit}
-              disabled={isLoading || !input.trim()}
-              size="icon"
-              className="h-8 w-8 rounded-full shadow-md"
-              aria-label="Send message"
-            >
-              <Send size={14} />
-            </Button>
+            </div>
           </div>
 
           {/* Keyboard hint */}

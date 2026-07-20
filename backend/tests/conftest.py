@@ -22,7 +22,7 @@ def mock_openai_embeddings(monkeypatch_session):
         input_data = kwargs.get("input", [])
         if isinstance(input_data, str):
             input_data = [input_data]
-        return MockResponse([MockData([0.1] * 1536) for _ in input_data])
+        return MockResponse([MockData([0.1] * 768) for _ in input_data])
         
     monkeypatch_session.setattr(
         openai.resources.embeddings.Embeddings,
@@ -67,7 +67,7 @@ def db_session():
             chunks = list(db.execute(select(DocumentChunk).limit(10)).scalars().all())
             
         for chunk in chunks:
-            chunk.embedding = [0.1] * 1536
+            chunk.embedding = [0.1] * 768
             
         db.flush()  # Push mock embeddings to database transaction state
         
